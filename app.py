@@ -4,7 +4,6 @@ import time
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA E ESTILOS
 # ==========================================
-# Voltamos para 'wide' para aproveitar o Desktop, o Streamlit cuidará do Mobile!
 st.set_page_config(page_title="STP | Triagem Preditiva", page_icon="🎯", layout="wide") 
 
 st.markdown("""
@@ -15,12 +14,10 @@ st.markdown("""
     h1, h2, h3 { color: #FFFFFF !important; }
     .sub-text { color: #A0AEC0; font-size: 0.9rem; margin-bottom: 15px; }
     div[role="radiogroup"] > label { margin-bottom: 5px; font-size: 0.85rem; }
-    
-    /* Abas otimizadas para Desktop e Mobile */
     [data-testid="stTabs"] button { font-size: 1rem; font-weight: 600; padding-bottom: 10px; }
     [data-testid="stTabs"] button[aria-selected="true"] { color: #00E676 !important; border-bottom-color: #00E676 !important; }
-    
     .footer { text-align: center; color: #4A5568; font-size: 0.85rem; margin-top: 50px; padding-top: 20px; border-top: 1px solid #2D3748; }
+    .raiox-item { font-size: 0.9rem; margin-bottom: -10px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -78,15 +75,15 @@ def calcular_risco_lesao(carga, sono, fadiga, historico, dor_atual, mobilidade, 
         gatilhos.append("Falta de descanso")
 
     if pontuacao <= 3:
-        risco = "RISCO BAIXO"
+        risco = "BAIXO"
         cor = "normal"
         justificativa = "Sinais estáveis. Treino liberado." if pontuacao == 0 else f"Atenção leve: {', '.join(gatilhos)}."
     elif pontuacao <= 6:
-        risco = "RISCO MÉDIO"
+        risco = "MÉDIO"
         cor = "off"
         justificativa = f"Risco moderado ativado por {', '.join(gatilhos)}."
     else:
-        risco = "RISCO ALTO"
+        risco = "ALTO"
         cor = "inverse"
         justificativa = f"Risco crítico gerado por {', '.join(gatilhos)}."
 
@@ -102,27 +99,32 @@ with st.sidebar:
     st.divider()
     st.markdown("### 📌 Instruções:")
     st.markdown("""
-    1. Preencha os dados nas duas abas.
-    2. Clique em **Gerar Diagnóstico**.
-    3. Leia a justificativa técnica.
-    4. Exporte o seu prontuário.
+    1. Identifique o Atleta no campo superior.
+    2. Preencha os parâmetros nas abas.
+    3. Clique em **Gerar Laudo**.
+    4. Analise o Raio-X do Atleta.
+    5. Siga o Plano de Intervenção sugerido.
     """)
     st.divider()
     st.markdown("<div style='font-size: 0.8rem; color: #A0AEC0;'>Desenvolvido por:<br>Italo Cassio<br>Thiago Alves<br>João Pedro<br>UNIPÊ - 2026</div>", unsafe_allow_html=True)
 
 # ==========================================
-# INTERFACE VISUAL (RESPONSIVA)
+# INTERFACE VISUAL (DASHBOARD INDIVIDUAL)
 # ==========================================
 st.markdown("<h1 style='text-align: center;'><span class='neon-green'>🎯</span> STP: Triagem Preditiva</h1>", unsafe_allow_html=True)
 st.write("") 
 
-# 🌟 O SEGREDO ESTÁ AQUI: O parâmetro gap="large" diz ao Streamlit para quebrar a tela no celular!
-col_esq, col_dir = st.columns([1.2, 1], gap="large")
+col_esq, col_dir = st.columns([1.2, 1.2], gap="large")
 
 with col_esq:
-    st.markdown("### 📋 Coleta de Dados")
+    st.markdown("### 📋 Coleta de Dados Clínicos")
     
     with st.form("form_triagem", border=True):
+        
+        # --- NOVO CAMPO: NOME DO ATLETA ---
+        nome_atleta = st.text_input("Identificação do Atleta", placeholder="Ex: Nome, Número ou ID do atleta...")
+        st.write("")
+        
         aba_treino, aba_clinica = st.tabs(["⚡ Parâmetros de Treino", "🩺 Sinais Clínicos"])
         
         with aba_treino:
@@ -154,21 +156,29 @@ with col_esq:
             hist_val = st.radio("Histórico", ["Não", "Sim"], horizontal=True, label_visibility="collapsed")
             
         st.write("")
-        btn_analisar = st.form_submit_button("🩺 GERAR DIAGNÓSTICO", type="primary", use_container_width=True)
+        btn_analisar = st.form_submit_button("🩺 GERAR LAUDO DO ATLETA", type="primary", use_container_width=True)
 
 with col_dir:
-    st.markdown("### 🎯 Resultado Oficial")
+    st.markdown("### 🎯 Laudo Preditivo Oficial")
     if btn_analisar:
-        with st.spinner("Processando matriz de decisão..."):
+        # Se o utilizador não digitar nada, usamos um nome padrão
+        identificacao = nome_atleta if nome_atleta else "Atleta Não Identificado"
+        
+        with st.spinner(f"Analisando variáveis de {identificacao}..."):
             time.sleep(0.8)
             risco, pontos, justificativa, cor, tipo_alerta = calcular_risco_lesao(carga_val, sono_val, fadiga_val, hist_val, dor_val, mob_val, desc_val)
         
-        st.toast("Triagem concluída!", icon="✅")
+        st.toast("Laudo gerado com sucesso!", icon="✅")
         
         with st.container(border=True):
+            # --- EXIBE O NOME DO ATLETA NO LAUDO ---
+            st.markdown(f"**Atleta Avaliado:** {identificacao}")
+            st.divider()
+            
+            # 1. CABEÇALHO DO LAUDO
             met1, met2 = st.columns(2)
             with met1:
-                st.metric(label="Status de Risco", value=risco)
+                st.metric(label="Status Global de Risco", value=risco)
             with met2:
                 st.metric(label="Carga Acumulada", value=f"{pontos} Pontos", delta="Sobrecarga", delta_color=cor)
             
@@ -177,26 +187,75 @@ with col_dir:
             
             st.divider()
             
+            # Avisos Clínicos Fortes
             if tipo_alerta == "CRITICO_DOR_MOBILIDADE":
                 st.error("**ALERTA CLÍNICO:** Combinação de dor e restrição de mobilidade. **Suspenda os treinos e procure avaliação médica.**", icon="🚨")
             elif tipo_alerta == "AVISO_SÓ_MOBILIDADE":
                 st.warning("**AVISO PREVENTIVO:** Restrição de mobilidade detectada. Isso altera a biomecânica. **Considere avaliação preventiva.**", icon="⚠️")
             
-            with st.expander("🧠 **Ver Justificativa Técnica do Modelo**", expanded=True):
-                if risco == "RISCO BAIXO":
+            # 2. RAIO-X DAS VARIÁVEIS (Onde o atleta está falhando?)
+            with st.expander("🔬 **Raio-X da Sobrecarga (Detalhes)**", expanded=True):
+                st.markdown("<p class='raiox-item'><strong>Justificativa do Modelo:</strong></p>", unsafe_allow_html=True)
+                if risco == "BAIXO":
                     st.success(f"✅ {justificativa}")
-                elif risco == "RISCO MÉDIO":
+                elif risco == "MÉDIO":
                     st.warning(f"🟠 {justificativa}")
                 else:
                     st.error(f"🔴 {justificativa}")
                 
+                st.write("")
+                st.markdown("<p class='raiox-item'><strong>Mapeamento de Fatores:</strong></p>", unsafe_allow_html=True)
+                
+                if carga_val == "Pico Súbito (Muito acima do normal)":
+                    st.error("⚡ Carga de Treino: Crítica (Pico Súbito)")
+                elif carga_val == "Aumento Leve":
+                    st.warning("⚡ Carga de Treino: Atenção (Aumento Leve)")
+                else:
+                    st.success("⚡ Carga de Treino: Adequada")
+
+                if sono_val == "menos que 6":
+                    st.error("🛌 Recuperação (Sono): Deficitária (< 6h)")
+                else:
+                    st.success("🛌 Recuperação (Sono): Adequada")
+                    
+                if dor_val == "Dor Aguda / Limitante":
+                    st.error("💥 Quadro Clínico: Dor Aguda Ativa")
+                elif dor_val == "Leve Desconforto":
+                    st.warning("💥 Quadro Clínico: Desconforto Leve")
+
+            # 3. PLANO DE AÇÃO (Gerado Dinamicamente)
+            st.markdown("#### 🛠️ Plano de Intervenção Recomendado")
+            with st.container(border=True):
+                intervencoes = 0
+                if risco == "BAIXO" and pontos == 0:
+                    st.write("- ✅ **Treino Liberado:** Atleta em perfeitas condições. Manter a planilha atual.")
+                    intervencoes += 1
+                if carga_val == "Pico Súbito (Muito acima do normal)":
+                    st.write("- ⚡ **Ajuste de Carga:** O volume de treino está muito alto. Sugere-se uma semana de *Deload* (redução de 30% a 50% da carga).")
+                    intervencoes += 1
+                if sono_val == "menos que 6" or fadiga_val == "Exaustão / Muito Cansado":
+                    st.write("- 🛌 **Foco em Recovery:** O corpo não está se recuperando a tempo. Priorizar higiene do sono (meta de 8h) e hidratação.")
+                    intervencoes += 1
+                if desc_val == "Treinos consecutivos sem pausa":
+                    st.write("- ⏳ **Gestão de Descanso:** Inserir obrigatoriamente 1 a 2 dias de *Rest Day* total na atual microciclo de treinos.")
+                    intervencoes += 1
+                if dor_val != "Nenhuma" or mob_val == "Restrita / Encurtamento":
+                    st.write("- 🧘 **Protocolo Físico:** Iniciar sessões de mobilidade articular e liberação miofascial antes de qualquer esforço.")
+                    intervencoes += 1
+                
+                if intervencoes == 0:
+                    st.write("- ✅ Mantenha o monitoramento diário para garantir a prevenção contínua.")
+
             st.write("")
             
+            # Exportar Laudo (AGORA INCLUI O NOME DO ATLETA NO TEXTO)
             texto_relatorio = f"""
 ======================================
   STP - SISTEMA DE TRIAGEM PREDITIVA
-  Relatório de Avaliação Física
+  Laudo de Risco Individual
 ======================================
+
+ATLETA AVALIADO: {identificacao}
 
 RESULTADO DA TRIAGEM:
 - Risco Detectado: {risco}
@@ -218,9 +277,9 @@ JUSTIFICATIVA DO MODELO LÓGICO:
 Gerado eletronicamente por STP (Python)
             """
             st.download_button(
-                label="📥 Exportar Prontuário (.txt)",
+                label=f"📥 Exportar Laudo de {identificacao} (.txt)",
                 data=texto_relatorio,
-                file_name="Prontuario_STP.txt",
+                file_name=f"Laudo_STP_{identificacao}.txt",
                 mime="text/plain",
                 use_container_width=True
             )
@@ -228,7 +287,7 @@ Gerado eletronicamente por STP (Python)
     else:
         with st.container(border=True):
             st.info("Aguardando submissão do formulário...", icon="⏳")
-            st.write("Preencha as variáveis e clique em gerar diagnóstico.")
+            st.write("Preencha as variáveis clínicas à esquerda para gerar o laudo e o plano de ação.")
 
 # Rodapé Oficial do TCC
 st.markdown(
