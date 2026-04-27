@@ -17,7 +17,10 @@ st.markdown("""
     [data-testid="stTabs"] button { font-size: 1rem; font-weight: 600; padding-bottom: 10px; }
     [data-testid="stTabs"] button[aria-selected="true"] { color: #00E676 !important; border-bottom-color: #00E676 !important; }
     .footer { text-align: center; color: #4A5568; font-size: 0.85rem; margin-top: 50px; padding-top: 20px; border-top: 1px solid #2D3748; }
-    .raiox-item { font-size: 0.9rem; margin-bottom: -10px; }
+    
+    /* CORREÇÃO DO ESPAÇAMENTO DO RAIO-X */
+    .raiox-item { font-size: 0.95rem; font-weight: bold; margin-bottom: 8px !important; margin-top: 12px !important; display: block; color: #E2E8F0; }
+    [data-testid="stExpanderDetails"] [data-testid="stAlert"] { margin-top: 0px !important; margin-bottom: 15px !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -120,8 +123,6 @@ with col_esq:
     st.markdown("### 📋 Coleta de Dados Clínicos")
     
     with st.form("form_triagem", border=True):
-        
-        # --- NOVO CAMPO: NOME DO ATLETA ---
         nome_atleta = st.text_input("Identificação do Atleta", placeholder="Ex: Nome, Número ou ID do atleta...")
         st.write("")
         
@@ -161,7 +162,6 @@ with col_esq:
 with col_dir:
     st.markdown("### 🎯 Laudo Preditivo Oficial")
     if btn_analisar:
-        # Se o utilizador não digitar nada, usamos um nome padrão
         identificacao = nome_atleta if nome_atleta else "Atleta Não Identificado"
         
         with st.spinner(f"Analisando variáveis de {identificacao}..."):
@@ -171,7 +171,6 @@ with col_dir:
         st.toast("Laudo gerado com sucesso!", icon="✅")
         
         with st.container(border=True):
-            # --- EXIBE O NOME DO ATLETA NO LAUDO ---
             st.markdown(f"**Atleta Avaliado:** {identificacao}")
             st.divider()
             
@@ -193,9 +192,9 @@ with col_dir:
             elif tipo_alerta == "AVISO_SÓ_MOBILIDADE":
                 st.warning("**AVISO PREVENTIVO:** Restrição de mobilidade detectada. Isso altera a biomecânica. **Considere avaliação preventiva.**", icon="⚠️")
             
-            # 2. RAIO-X DAS VARIÁVEIS (Onde o atleta está falhando?)
+            # 2. RAIO-X DAS VARIÁVEIS 
             with st.expander("🔬 **Raio-X da Sobrecarga (Detalhes)**", expanded=True):
-                st.markdown("<p class='raiox-item'><strong>Justificativa do Modelo:</strong></p>", unsafe_allow_html=True)
+                st.markdown("<div class='raiox-item'>Justificativa do Modelo:</div>", unsafe_allow_html=True)
                 if risco == "BAIXO":
                     st.success(f"✅ {justificativa}")
                 elif risco == "MÉDIO":
@@ -203,8 +202,7 @@ with col_dir:
                 else:
                     st.error(f"🔴 {justificativa}")
                 
-                st.write("")
-                st.markdown("<p class='raiox-item'><strong>Mapeamento de Fatores:</strong></p>", unsafe_allow_html=True)
+                st.markdown("<div class='raiox-item'>Mapeamento de Fatores:</div>", unsafe_allow_html=True)
                 
                 if carga_val == "Pico Súbito (Muito acima do normal)":
                     st.error("⚡ Carga de Treino: Crítica (Pico Súbito)")
@@ -223,7 +221,7 @@ with col_dir:
                 elif dor_val == "Leve Desconforto":
                     st.warning("💥 Quadro Clínico: Desconforto Leve")
 
-            # 3. PLANO DE AÇÃO (Gerado Dinamicamente)
+            # 3. PLANO DE AÇÃO
             st.markdown("#### 🛠️ Plano de Intervenção Recomendado")
             with st.container(border=True):
                 intervencoes = 0
@@ -248,7 +246,7 @@ with col_dir:
 
             st.write("")
             
-            # Exportar Laudo (AGORA INCLUI O NOME DO ATLETA NO TEXTO)
+            # Exportar Laudo
             texto_relatorio = f"""
 ======================================
   STP - SISTEMA DE TRIAGEM PREDITIVA
