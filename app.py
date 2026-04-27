@@ -1,36 +1,42 @@
 import streamlit as st
+import time
 
 # ==========================================
-# CONFIGURAÇÃO DA PÁGINA
+# CONFIGURAÇÃO DA PÁGINA E ESTILOS
 # ==========================================
-st.set_page_config(page_title="STP | Triagem Preditiva", page_icon="🎯", layout="wide")
+# Voltamos para 'wide' para aproveitar o Desktop, o Streamlit cuidará do Mobile!
+st.set_page_config(page_title="STP | Triagem Preditiva", page_icon="🎯", layout="wide") 
 
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #FFFFFF; }
-    [data-testid="stVerticalBlockBorderWrapper"] { background-color: #161A23; border-radius: 12px; border: 1px solid #2D3748; padding: 20px; }
+    [data-testid="stForm"], [data-testid="stVerticalBlockBorderWrapper"] { background-color: #161A23; border-radius: 12px; border: 1px solid #2D3748; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
     .neon-green { color: #00E676; font-weight: bold; }
     h1, h2, h3 { color: #FFFFFF !important; }
     .sub-text { color: #A0AEC0; font-size: 0.9rem; margin-bottom: 15px; }
     div[role="radiogroup"] > label { margin-bottom: 5px; font-size: 0.85rem; }
+    
+    /* Abas otimizadas para Desktop e Mobile */
+    [data-testid="stTabs"] button { font-size: 1rem; font-weight: 600; padding-bottom: 10px; }
+    [data-testid="stTabs"] button[aria-selected="true"] { color: #00E676 !important; border-bottom-color: #00E676 !important; }
+    
+    .footer { text-align: center; color: #4A5568; font-size: 0.85rem; margin-top: 50px; padding-top: 20px; border-top: 1px solid #2D3748; }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# MOTOR DE REGRAS (O CÉREBRO)
+# MOTOR DE REGRAS (O CÉREBRO - INTACTO)
 # ==========================================
 def calcular_risco_lesao(carga, sono, fadiga, historico, dor_atual, mobilidade, descanso):
     pontuacao = 0
     gatilhos = []
     
-    # Detecção Inteligente de Alertas (Red Flags)
     tipo_alerta = None 
     if dor_atual != "Nenhuma" and mobilidade == "Restrita / Encurtamento":
         tipo_alerta = "CRITICO_DOR_MOBILIDADE"
     elif dor_atual == "Nenhuma" and mobilidade == "Restrita / Encurtamento":
         tipo_alerta = "AVISO_SÓ_MOBILIDADE"
 
-    # Avaliação de Variáveis (ATUALIZADO COM OS PESOS DO TCC)
     if carga == "Pico Súbito (Muito acima do normal)":
         pontuacao += 3
         gatilhos.append("Pico Súbito de Carga")
@@ -53,108 +59,184 @@ def calcular_risco_lesao(carga, sono, fadiga, historico, dor_atual, mobilidade, 
         gatilhos.append("Fadiga residual")
         
     if historico == "Sim":
-        pontuacao += 1  # CORRIGIDO PARA +1
+        pontuacao += 1  
         gatilhos.append("Histórico Lesivo")
 
     if dor_atual == "Dor Aguda / Limitante":
-        pontuacao += 3  # CORRIGIDO PARA +3
+        pontuacao += 3  
         gatilhos.append("Dor Aguda")
     elif dor_atual == "Leve Desconforto":
         pontuacao += 1
         gatilhos.append("Desconforto")
 
     if mobilidade == "Restrita / Encurtamento":
-        pontuacao += 2  # CORRIGIDO PARA +2
+        pontuacao += 2  
         gatilhos.append("Mobilidade Restrita")
 
     if descanso == "Treinos consecutivos sem pausa":
         pontuacao += 1
         gatilhos.append("Falta de descanso")
 
-    # Diagnóstico Final
     if pontuacao <= 3:
         risco = "RISCO BAIXO"
         cor = "normal"
-        justificativa = "Sinais estáveis. Treino liberado. ✅" if pontuacao == 0 else f"Atenção leve: {', '.join(gatilhos)}. 🟡"
+        justificativa = "Sinais estáveis. Treino liberado." if pontuacao == 0 else f"Atenção leve: {', '.join(gatilhos)}."
     elif pontuacao <= 6:
         risco = "RISCO MÉDIO"
         cor = "off"
-        justificativa = f"Alerta Laranja: Risco moderado ativado por {', '.join(gatilhos)}. 🟠"
+        justificativa = f"Risco moderado ativado por {', '.join(gatilhos)}."
     else:
         risco = "RISCO ALTO"
         cor = "inverse"
-        justificativa = f"ALERTA CRÍTICO: Risco gerado por {', '.join(gatilhos)}. 🔴"
+        justificativa = f"Risco crítico gerado por {', '.join(gatilhos)}."
 
     return risco, pontuacao, justificativa, cor, tipo_alerta
 
 # ==========================================
-# INTERFACE VISUAL (DASHBOARD)
+# MENU LATERAL (SIDEBAR)
 # ==========================================
-st.markdown("<h1 style='text-align: center;'><span class='neon-green'>🎯</span> STP: Sistema de Triagem Preditiva 🏃‍♂️</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;' class='sub-text'>Avaliação Inteligente de Risco de Lesão Desportiva 📊</p>", unsafe_allow_html=True)
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/8112/8112613.png", width=80) 
+    st.markdown("## Sobre o STP")
+    st.write("O **Sistema de Triagem Preditiva** é um protótipo focado na transparência e interpretabilidade de dados em saúde desportiva.")
+    st.divider()
+    st.markdown("### 📌 Instruções:")
+    st.markdown("""
+    1. Preencha os dados nas duas abas.
+    2. Clique em **Gerar Diagnóstico**.
+    3. Leia a justificativa técnica.
+    4. Exporte o seu prontuário.
+    """)
+    st.divider()
+    st.markdown("<div style='font-size: 0.8rem; color: #A0AEC0;'>Desenvolvido por:<br>Italo Cassio<br>Thiago Alves<br>João Pedro<br>UNIPÊ - 2026</div>", unsafe_allow_html=True)
 
-col_esq, col_espaco, col_dir = st.columns([1.5, 0.1, 1])
+# ==========================================
+# INTERFACE VISUAL (RESPONSIVA)
+# ==========================================
+st.markdown("<h1 style='text-align: center;'><span class='neon-green'>🎯</span> STP: Triagem Preditiva</h1>", unsafe_allow_html=True)
+st.write("") 
+
+# 🌟 O SEGREDO ESTÁ AQUI: O parâmetro gap="large" diz ao Streamlit para quebrar a tela no celular!
+col_esq, col_dir = st.columns([1.2, 1], gap="large")
 
 with col_esq:
-    st.markdown("### 📋 Variáveis Fisiológicas e Biomecânicas")
-    with st.container(border=True):
-        c1, c2 = st.columns(2)
+    st.markdown("### 📋 Coleta de Dados")
+    
+    with st.form("form_triagem", border=True):
+        aba_treino, aba_clinica = st.tabs(["⚡ Parâmetros de Treino", "🩺 Sinais Clínicos"])
         
-        with c1:
-            st.markdown("**1. Frequência e Intensidade (Carga) ⚡**")
+        with aba_treino:
+            st.markdown("**1. Carga de Treino Recente**")
             carga_val = st.radio("Carga", ["Habitual (Estável)", "Aumento Leve", "Pico Súbito (Muito acima do normal)"], label_visibility="collapsed")
             st.write("")
             
-            st.markdown("**2. Nível de Fadiga 🔋**")
+            st.markdown("**2. Nível de Fadiga**")
             fadiga_val = st.radio("Fadiga", ["Recuperado", "Cansaço Leve", "Exaustão / Muito Cansado"], label_visibility="collapsed")
             st.write("")
             
-            st.markdown("**3. Dor Atual 💥**")
+            st.markdown("**3. Descanso e Pausas**")
+            desc_val = st.radio("Descanso", ["Dias de descanso respeitados", "Treinos consecutivos sem pausa"], label_visibility="collapsed")
+            
+        with aba_clinica:
+            st.markdown("**4. Dor Atual**")
             dor_val = st.radio("Dor", ["Nenhuma", "Leve Desconforto", "Dor Aguda / Limitante"], label_visibility="collapsed")
             st.write("")
             
-            st.markdown("**4. Histórico de Lesão (6 meses) 🏥**")
-            hist_val = st.radio("Histórico", ["Não", "Sim"], horizontal=True, label_visibility="collapsed")
-
-        with c2:
-            st.markdown("**5. Qualidade do Sono 🛌**")
-            sono_val = st.radio("Sono", ["menos que 6", "de 7 a 9", "de 10 a 12"], index=1, label_visibility="collapsed")
-            st.write("")
-            
-            st.markdown("**6. Mobilidade 🤸**")
+            st.markdown("**5. Mobilidade e Flexibilidade**")
             mob_val = st.radio("Mobilidade", ["Normal / Livre", "Restrita / Encurtamento"], label_visibility="collapsed")
             st.write("")
             
-            st.markdown("**7. Descanso ⏳**")
-            desc_val = st.radio("Descanso", ["Dias de descanso respeitados", "Treinos consecutivos sem pausa"], label_visibility="collapsed")
+            st.markdown("**6. Qualidade do Sono**")
+            sono_val = st.radio("Sono", ["menos que 6", "de 7 a 9", "de 10 a 12"], index=1, label_visibility="collapsed")
+            st.write("")
             
-    btn_analisar = st.button("GERAR DIAGNÓSTICO", type="primary", use_container_width=True)
+            st.markdown("**7. Histórico de Lesão (6 meses)**")
+            hist_val = st.radio("Histórico", ["Não", "Sim"], horizontal=True, label_visibility="collapsed")
+            
+        st.write("")
+        btn_analisar = st.form_submit_button("🩺 GERAR DIAGNÓSTICO", type="primary", use_container_width=True)
 
 with col_dir:
-    st.markdown("### 🎯 Resultado da Triagem")
+    st.markdown("### 🎯 Resultado Oficial")
     if btn_analisar:
-        risco, pontos, justificativa, cor, tipo_alerta = calcular_risco_lesao(carga_val, sono_val, fadiga_val, hist_val, dor_val, mob_val, desc_val)
+        with st.spinner("Processando matriz de decisão..."):
+            time.sleep(0.8)
+            risco, pontos, justificativa, cor, tipo_alerta = calcular_risco_lesao(carga_val, sono_val, fadiga_val, hist_val, dor_val, mob_val, desc_val)
+        
+        st.toast("Triagem concluída!", icon="✅")
         
         with st.container(border=True):
-            st.metric(label="Status de Risco Atual", value=risco, delta=f"{pontos} Pontos de Sobrecarga", delta_color=cor)
+            met1, met2 = st.columns(2)
+            with met1:
+                st.metric(label="Status de Risco", value=risco)
+            with met2:
+                st.metric(label="Carga Acumulada", value=f"{pontos} Pontos", delta="Sobrecarga", delta_color=cor)
+            
+            progresso_normalizado = min(pontos / 14.0, 1.0)
+            st.progress(progresso_normalizado)
+            
             st.divider()
             
-            # Avisos Clínicos
             if tipo_alerta == "CRITICO_DOR_MOBILIDADE":
-                st.error("🚨 **ALERTA CLÍNICO:** A combinação de dores com problemas na mobilidade indica uma possível lesão instalada. **Recomendamos que suspenda os treinos e procure avaliação de um profissional de saúde.**")
+                st.error("**ALERTA CLÍNICO:** Combinação de dor e restrição de mobilidade. **Suspenda os treinos e procure avaliação médica.**", icon="🚨")
             elif tipo_alerta == "AVISO_SÓ_MOBILIDADE":
-                st.warning("⚠️ **AVISO PREVENTIVO:** Você relatou uma restrição de mobilidade. Mesmo sem dor, treinar com encurtamentos ou perda de função altera a biomecânica. **Considere a avaliação de um profissional de saúde/fisioterapeuta.**")
+                st.warning("**AVISO PREVENTIVO:** Restrição de mobilidade detectada. Isso altera a biomecânica. **Considere avaliação preventiva.**", icon="⚠️")
             
-            st.markdown("#### 🧠 Justificativa Técnica do Modelo")
-            if risco == "RISCO BAIXO":
-                st.success(justificativa)
-            elif risco == "RISCO MÉDIO":
-                st.warning(justificativa)
-            else:
-                st.error(justificativa)
+            with st.expander("🧠 **Ver Justificativa Técnica do Modelo**", expanded=True):
+                if risco == "RISCO BAIXO":
+                    st.success(f"✅ {justificativa}")
+                elif risco == "RISCO MÉDIO":
+                    st.warning(f"🟠 {justificativa}")
+                else:
+                    st.error(f"🔴 {justificativa}")
                 
-            st.markdown("<br><div class='sub-text'>🔍 <i>Modelo baseado nas variáveis oficiais da metodologia do projeto de graduação.</i></div>", unsafe_allow_html=True)
+            st.write("")
+            
+            texto_relatorio = f"""
+======================================
+  STP - SISTEMA DE TRIAGEM PREDITIVA
+  Relatório de Avaliação Física
+======================================
+
+RESULTADO DA TRIAGEM:
+- Risco Detectado: {risco}
+- Carga Acumulada: {pontos} pontos
+
+RESUMO DAS VARIÁVEIS DECLARADAS:
+- Carga de Treino: {carga_val}
+- Fadiga: {fadiga_val}
+- Dor Atual: {dor_val}
+- Histórico: {hist_val}
+- Sono: {sono_val}h
+- Mobilidade: {mob_val}
+- Descanso: {desc_val}
+
+JUSTIFICATIVA DO MODELO LÓGICO:
+{justificativa}
+
+======================================
+Gerado eletronicamente por STP (Python)
+            """
+            st.download_button(
+                label="📥 Exportar Prontuário (.txt)",
+                data=texto_relatorio,
+                file_name="Prontuario_STP.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+            
     else:
         with st.container(border=True):
-            st.info("⏳ Aguardando submissão...")
-            st.write("Preencha as 7 variáveis oficiais à esquerda para obteres a triagem de risco completa.")
+            st.info("Aguardando submissão do formulário...", icon="⏳")
+            st.write("Preencha as variáveis e clique em gerar diagnóstico.")
+
+# Rodapé Oficial do TCC
+st.markdown(
+    """
+    <div class='footer'>
+        <strong>Protótipo desenvolvido para o TCC de Ciência da Computação - UNIPÊ (2026)</strong><br>
+        Italo Cassio Severiano | Thiago Alves Candido | João Pedro Lopes
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
