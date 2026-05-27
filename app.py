@@ -3,9 +3,17 @@ import time
 from datetime import datetime 
 
 # ==========================================
-# CONFIGURAÇÃO DA PÁGINA E ESTILOS
+# CONFIGURAÇÃO DA PÁGINA, ESTILOS E MEMÓRIA
 # ==========================================
 st.set_page_config(page_title="STP | Triagem Preditiva", page_icon="🎯", layout="wide") 
+
+# INICIANDO A MEMÓRIA DO SISTEMA (Impede que a tela resete)
+if 'estado_laudo' not in st.session_state:
+    st.session_state['estado_laudo'] = None
+if 'dados' not in st.session_state:
+    st.session_state['dados'] = {}
+if 'campos_vazios' not in st.session_state:
+    st.session_state['campos_vazios'] = []
 
 st.markdown("""
     <style>
@@ -129,7 +137,6 @@ with col_esq:
         
         with aba_treino:
             st.markdown("**1. Carga de Treino Recente**")
-            # Adicionado index=None para todos os botões
             carga_val = st.radio("Carga", ["Habitual (Estável)", "Aumento Leve", "Pico Súbito (Muito acima do normal)"], index=None, label_visibility="collapsed")
             st.write("")
             
@@ -161,153 +168,201 @@ with col_esq:
 
 with col_dir:
     st.markdown("### 🎯 Laudo Preditivo Oficial")
+    
+    # 1. QUANDO O BOTÃO É CLICADO, SALVAMOS TUDO NA MEMÓRIA
     if btn_analisar:
+        campos_obrigatorios = {
+            "Carga de Treino Recente": carga_val,
+            "Nível de Fadiga": fadiga_val,
+            "Descanso e Pausas": desc_val,
+            "Dor Atual": dor_val,
+            "Mobilidade e Flexibilidade": mob_val,
+            "Qualidade do Sono": sono_val,
+            "Histórico de Lesão (6 meses)": hist_val
+        }
         
-        # TRAVA DE SEGURANÇA: Verifica se alguma variável ficou em branco
-        if None in [carga_val, fadiga_val, desc_val, dor_val, mob_val, sono_val, hist_val]:
-            with st.container(border=True):
-                st.warning("⚠️ **Atenção:** Por favor, responda a todas as 7 perguntas nas abas 'Parâmetros de Treino' e 'Sinais Clínicos' antes de gerar o laudo.")
+        campos_vazios = [nome for nome, valor in campos_obrigatorios.items() if valor is None]
         
-        else: # Se tudo estiver preenchido, roda o cálculo normalmente
-            identificacao = nome_atleta if nome_atleta else "Atleta Não Identificado"
-            data_hora_atual = datetime.now().strftime("%d/%m/%Y às %H:%M")
+        if campos_vazios:
+            st.session_state['estado_laudo'] = 'erro'
+            st.session_state['campos_vazios'] = campos_vazios
+        else:
+            st.session_state['estado_laudo'] = 'sucesso'
+            st.session_state['dados'] = {
+                'nome': nome_atleta if nome_atleta else "Atleta Não Identificado",
+                'carga': carga_val,
+                'fadiga': fadiga_val,
+                'desc': desc_val,
+                'dor': dor_val,
+                'mob': mob_val,
+                'sono': sono_val,
+                'hist': hist_val,
+                'data_hora': datetime.now().strftime("%d/%m/%Y às %H:%M")
+            }
+
+    # 2. RENDERIZAMOS A TELA LENDO DA MEMÓRIA (Assim nada some!)
+    estado = st.session_state['estado_laudo']
+
+    if estado == 'erro':
+        with st.container(border=True):
+            st.error("🚨 **Atenção: Preenchimento Incompleto!**")
+            st.write("Não é possível gerar um laudo médico preditivo com dados faltantes. Por favor, responda às seguintes perguntas nas abas ao lado:")
+            for campo in st.session_state['campos_vazios']:
+                st.markdown(f"- 🔴 **{campo}**")
+            st.write("")
+            st.info("Após preencher os campos acima, clique novamente em 'Gerar Laudo'.")
             
-            with st.spinner(f"Analisando variáveis de {identificacao}..."):
+    elif estado == 'sucesso':
+        d = st.session_state['dados']
+        
+        # Só exibe o spinner e o toast quando acabou de clicar no botão
+        if btn_analisar:
+            with st.spinner(f"Analisando variáveis de {d['nome']}..."):
                 time.sleep(0.8)
-                risco, pontos, justificativa, cor, tipo_alerta = calcular_risco_lesao(carga_val, sono_val, fadiga_val, hist_val, dor_val, mob_val, desc_val)
-            
             st.toast("Laudo gerado com sucesso!", icon="✅")
             
-            with st.container(border=True):
-                st.markdown(f"**Atleta Avaliado:** {identificacao} <br> <span style='font-size: 0.8rem; color: #A0AEC0;'>📅 Data da Triagem: {data_hora_atual}</span>", unsafe_allow_html=True)
-                st.divider()
+        risco, pontos, justificativa, cor, tipo_alerta = calcular_risco_lesao(
+            d['carga'], d['sono'], d['fadiga'], d['hist'], d['dor'], d['mob'], d['desc']
+        )
+        
+        with st.container(border=True):
+            st.markdown(f"**Atleta Avaliado:** {d['nome']} <br> <span style='font-size: 0.8rem; color: #A0AEC0;'>📅 Data da Triagem: {d['data_hora']}</span>", unsafe_allow_html=True)
+            st.divider()
+            
+            # CABEÇALHO DO LAUDO
+            met1, met2 = st.columns(2)
+            with met1:
+                st.metric(label="Status Global de Risco", value=risco)
+            with met2:
+                st.metric(label="Carga Acumulada", value=f"{pontos} Pontos", delta="Sobrecarga", delta_color=cor)
+            
+            progresso_normalizado = min(pontos / 14.0, 1.0)
+            st.progress(progresso_normalizado)
+            
+            st.divider()
+            
+            if tipo_alerta == "CRITICO_DOR_MOBILIDADE":
+                st.error("**ALERTA CLÍNICO:** Combinação de dor e restrição de mobilidade. **Suspenda os treinos e procure avaliação médica.**", icon="🚨")
+            elif tipo_alerta == "AVISO_SÓ_MOBILIDADE":
+                st.warning("**AVISO PREVENTIVO:** Restrição de mobilidade detectada. Isso altera a biomecânica. **Considere avaliação preventiva.**", icon="⚠️")
+            
+            # RAIO-X DAS VARIÁVEIS
+            with st.expander("🔬 **Raio-X da Sobrecarga (Detalhes)**", expanded=True):
+                st.markdown("<div class='raiox-item'>Justificativa do Modelo:</div>", unsafe_allow_html=True)
+                if risco == "BAIXO":
+                    st.success(f"✅ {justificativa}")
+                elif risco == "MÉDIO":
+                    st.warning(f"🟠 {justificativa}")
+                else:
+                    st.error(f"🔴 {justificativa}")
                 
-                # 1. CABEÇALHO DO LAUDO
-                met1, met2 = st.columns(2)
-                with met1:
-                    st.metric(label="Status Global de Risco", value=risco)
-                with met2:
-                    st.metric(label="Carga Acumulada", value=f"{pontos} Pontos", delta="Sobrecarga", delta_color=cor)
+                st.markdown("<div class='raiox-item'>Mapeamento de Fatores:</div>", unsafe_allow_html=True)
                 
-                progresso_normalizado = min(pontos / 14.0, 1.0)
-                st.progress(progresso_normalizado)
+                rx_col1, rx_col2 = st.columns(2)
                 
-                st.divider()
-                
-                # Avisos Clínicos Fortes
-                if tipo_alerta == "CRITICO_DOR_MOBILIDADE":
-                    st.error("**ALERTA CLÍNICO:** Combinação de dor e restrição de mobilidade. **Suspenda os treinos e procure avaliação médica.**", icon="🚨")
-                elif tipo_alerta == "AVISO_SÓ_MOBILIDADE":
-                    st.warning("**AVISO PREVENTIVO:** Restrição de mobilidade detectada. Isso altera a biomecânica. **Considere avaliação preventiva.**", icon="⚠️")
-                
-                # 2. RAIO-X DAS VARIÁVEIS
-                with st.expander("🔬 **Raio-X da Sobrecarga (Detalhes)**", expanded=True):
-                    st.markdown("<div class='raiox-item'>Justificativa do Modelo:</div>", unsafe_allow_html=True)
-                    if risco == "BAIXO":
-                        st.success(f"✅ {justificativa}")
-                    elif risco == "MÉDIO":
-                        st.warning(f"🟠 {justificativa}")
+                with rx_col1:
+                    if d['carga'] == "Pico Súbito (Muito acima do normal)":
+                        st.error("⚡ Carga: Pico Súbito")
+                    elif d['carga'] == "Aumento Leve":
+                        st.warning("⚡ Carga: Aumento Leve")
                     else:
-                        st.error(f"🔴 {justificativa}")
-                    
-                    st.markdown("<div class='raiox-item'>Mapeamento de Fatores:</div>", unsafe_allow_html=True)
-                    
-                    rx_col1, rx_col2 = st.columns(2)
-                    
-                    with rx_col1:
-                        if carga_val == "Pico Súbito (Muito acima do normal)":
-                            st.error("⚡ Carga: Pico Súbito")
-                        elif carga_val == "Aumento Leve":
-                            st.warning("⚡ Carga: Aumento Leve")
-                        else:
-                            st.success("⚡ Carga: Adequada")
+                        st.success("⚡ Carga: Adequada")
 
-                        if sono_val == "menos que 6":
-                            st.error("🛌 Sono: Deficitário")
-                        else:
-                            st.success("🛌 Sono: Adequado")
-                    
-                    with rx_col2:
-                        if dor_val == "Dor Aguda / Limitante":
-                            st.error("💥 Dor: Aguda Ativa")
-                        elif dor_val == "Leve Desconforto":
-                            st.warning("💥 Dor: Desconforto")
-                        else:
-                            st.success("💥 Dor: Nenhuma")
-                            
-                        if mob_val == "Restrita / Encurtamento":
-                            st.warning("🤸 Mobilidade: Restrita")
-                        else:
-                            st.success("🤸 Mobilidade: Livre")
-
-                # 3. PLANO DE AÇÃO
-                st.markdown("#### 🛠️ Plano de Intervenção Recomendado")
-                with st.container(border=True):
-                    intervencoes = 0
-                    if risco == "BAIXO" and pontos == 0:
-                        st.write("- ✅ **Treino Liberado:** Atleta em perfeitas condições. Manter a planilha atual.")
-                        intervencoes += 1
-                    if carga_val == "Pico Súbito (Muito acima do normal)":
-                        st.write("- ⚡ **Ajuste de Carga:** O volume de treino está muito alto. Sugere-se uma semana de *Deload* (redução de 30% a 50% da carga).")
-                        intervencoes += 1
-                    if sono_val == "menos que 6" or fadiga_val == "Exaustão / Muito Cansado":
-                        st.write("- 🛌 **Foco em Recovery:** O corpo não está se recuperando a tempo. Priorizar higiene do sono (meta de 8h) e hidratação.")
-                        intervencoes += 1
-                    if desc_val == "Treinos consecutivos sem pausa":
-                        st.write("- ⏳ **Gestão de Descanso:** Inserir obrigatoriamente 1 a 2 dias de *Rest Day* total no atual microciclo de treinos.")
-                        intervencoes += 1
-                    if dor_val != "Nenhuma" or mob_val == "Restrita / Encurtamento":
-                        st.write("- 🧘 **Protocolo Físico:** Iniciar sessões de mobilidade articular e liberação miofascial antes de qualquer esforço.")
-                        intervencoes += 1
-                    
-                    if intervencoes == 0:
-                        st.write("- ✅ Mantenha o monitoramento diário para garantir a prevenção contínua.")
-
-                st.write("")
+                    if d['sono'] == "menos que 6":
+                        st.error("🛌 Sono: Deficitário")
+                    else:
+                        st.success("🛌 Sono: Adequado")
                 
-                col_botoes1, col_botoes2 = st.columns(2)
+                with rx_col2:
+                    if d['dor'] == "Dor Aguda / Limitante":
+                        st.error("💥 Dor: Aguda Ativa")
+                    elif d['dor'] == "Leve Desconforto":
+                        st.warning("💥 Dor: Desconforto")
+                    else:
+                        st.success("💥 Dor: Nenhuma")
+                        
+                    if d['mob'] == "Restrita / Encurtamento":
+                        st.warning("🤸 Mobilidade: Restrita")
+                    else:
+                        st.success("🤸 Mobilidade: Livre")
+
+            # PLANO DE AÇÃO
+            st.markdown("#### 🛠️ Plano de Intervenção Recomendado")
+            with st.container(border=True):
+                intervencoes = 0
+                if risco == "BAIXO" and pontos == 0:
+                    st.write("- ✅ **Treino Liberado:** Atleta em perfeitas condições. Manter a planilha atual.")
+                    intervencoes += 1
+                if d['carga'] == "Pico Súbito (Muito acima do normal)":
+                    st.write("- ⚡ **Ajuste de Carga:** O volume de treino está muito alto. Sugere-se uma semana de *Deload* (redução de 30% a 50% da carga).")
+                    intervencoes += 1
+                if d['sono'] == "menos que 6" or d['fadiga'] == "Exaustão / Muito Cansado":
+                    st.write("- 🛌 **Foco em Recovery:** O corpo não está se recuperando a tempo. Priorizar higiene do sono (meta de 8h) e hidratação.")
+                    intervencoes += 1
+                if d['desc'] == "Treinos consecutivos sem pausa":
+                    st.write("- ⏳ **Gestão de Descanso:** Inserir obrigatoriamente 1 a 2 dias de *Rest Day* total no atual microciclo de treinos.")
+                    intervencoes += 1
+                if d['dor'] != "Nenhuma" or d['mob'] == "Restrita / Encurtamento":
+                    st.write("- 🧘 **Protocolo Físico:** Iniciar sessões de mobilidade articular e liberação miofascial antes de qualquer esforço.")
+                    intervencoes += 1
                 
-                with col_botoes1:
-                    texto_relatorio = f"""
+                if intervencoes == 0:
+                    st.write("- ✅ Mantenha o monitoramento diário para garantir a prevenção contínua.")
+
+            # MÓDULO DE VALIDAÇÃO CLÍNICA CONTÍNUA (Agora seguro contra resete)
+            st.markdown("#### 🩺 Validação em Cenário Real (Feedback do Especialista)")
+            with st.container(border=True):
+                st.markdown("<div style='font-size:0.85rem; color:#A0AEC0;'>Seção exclusiva para o Fisioterapeuta/Treinador validar a acurácia do modelo em campo:</div>", unsafe_allow_html=True)
+                feedback_modelo = st.radio("O diagnóstico da IA condiz com o estado clínico real do atleta?", ["Sim, 100% de acerto", "Parcialmente correto", "Incorreto / Falso Positivo"], index=None, key="feedback_banca")
+                obs_clinica = st.text_input("Observações de campo / Ajustes sugeridos pelo especialista:", placeholder="Ex: Atleta relatou dor tardia muscular comum, não articular...")
+
+            st.write("")
+            col_botoes1, col_botoes2 = st.columns(2)
+            
+            with col_botoes1:
+                feedback_txt = feedback_modelo if feedback_modelo else "Não avaliado pelo especialista ainda"
+                obs_txt = obs_clinica if obs_clinica else "Nenhuma observação inserida"
+                
+                texto_relatorio = f"""
 ======================================
   STP - SISTEMA DE TRIAGEM PREDITIVA
   Laudo de Risco Individual
 ======================================
 
-ATLETA AVALIADO: {identificacao}
-DATA DA TRIAGEM: {data_hora_atual}
+ATLETA AVALIADO: {d['nome']}
+DATA DA TRIAGEM: {d['data_hora']}
 
-RESULTADO DA TRIAGEM:
+RESULTADO DA TRIAGEM DA IA:
 - Risco Detectado: {risco}
 - Carga Acumulada: {pontos} pontos
-
-RESUMO DAS VARIÁVEIS DECLARADAS:
-- Carga de Treino: {carga_val}
-- Fadiga: {fadiga_val}
-- Dor Atual: {dor_val}
-- Histórico: {hist_val}
-- Sono: {sono_val}h
-- Mobilidade: {mob_val}
-- Descanso: {desc_val}
 
 JUSTIFICATIVA DO MODELO LÓGICO:
 {justificativa}
 
 ======================================
+  MÓDULO DE VALIDAÇÃO EM CENÁRIO REAL
+======================================
+- Validação Clínica: {feedback_txt}
+- Notas do Especialista: {obs_txt}
+
+======================================
 Gerado eletronicamente por STP (Python)
-                    """
-                    st.download_button(
-                        label=f"📥 Exportar Laudo (.txt)",
-                        data=texto_relatorio,
-                        file_name=f"Laudo_STP_{identificacao}.txt",
-                        mime="text/plain",
-                        use_container_width=True
-                    )
-                    
-                with col_botoes2:
-                    if st.button("🔄 Avaliar Novo Atleta", use_container_width=True):
-                        st.rerun()
-            
+                """
+                st.download_button(
+                    label=f"📥 Exportar Prontuário Validado (.txt)",
+                    data=texto_relatorio,
+                    file_name=f"Laudo_STP_{d['nome']}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+                
+            with col_botoes2:
+                if st.button("🔄 Avaliar Novo Atleta", use_container_width=True):
+                    # Limpa a memória para avaliar o próximo
+                    st.session_state['estado_laudo'] = None
+                    st.session_state['dados'] = {}
+                    st.rerun()
+        
     else:
         with st.container(border=True):
             st.info("Aguardando submissão do formulário...", icon="⏳")
