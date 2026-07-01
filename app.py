@@ -1,26 +1,269 @@
 import streamlit as st
 import time
+from datetime import datetime 
 
 # ==========================================
-# CONFIGURAÇÃO DA PÁGINA E ESTILOS
+# CONFIGURAÇÃO DA PÁGINA, ESTILOS E MEMÓRIA
 # ==========================================
 st.set_page_config(page_title="STP | Triagem Preditiva", page_icon="🎯", layout="wide") 
 
+# INICIANDO A MEMÓRIA DO SISTEMA (Impede que a tela resete)
+if 'estado_laudo' not in st.session_state:
+    st.session_state['estado_laudo'] = None
+if 'dados' not in st.session_state:
+    st.session_state['dados'] = {}
+if 'campos_vazios' not in st.session_state:
+    st.session_state['campos_vazios'] = []
+
 st.markdown("""
     <style>
-    .stApp { background-color: #0E1117; color: #FFFFFF; }
-    [data-testid="stForm"], [data-testid="stVerticalBlockBorderWrapper"] { background-color: #161A23; border-radius: 12px; border: 1px solid #2D3748; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-    .neon-green { color: #00E676; font-weight: bold; }
-    h1, h2, h3 { color: #FFFFFF !important; }
-    .sub-text { color: #A0AEC0; font-size: 0.9rem; margin-bottom: 15px; }
-    div[role="radiogroup"] > label { margin-bottom: 5px; font-size: 0.85rem; }
-    [data-testid="stTabs"] button { font-size: 1rem; font-weight: 600; padding-bottom: 10px; }
-    [data-testid="stTabs"] button[aria-selected="true"] { color: #00E676 !important; border-bottom-color: #00E676 !important; }
-    .footer { text-align: center; color: #4A5568; font-size: 0.85rem; margin-top: 50px; padding-top: 20px; border-top: 1px solid #2D3748; }
-    
-    /* CORREÇÃO DO ESPAÇAMENTO DO RAIO-X */
-    .raiox-item { font-size: 0.95rem; font-weight: bold; margin-bottom: 8px !important; margin-top: 12px !important; display: block; color: #E2E8F0; }
-    [data-testid="stExpanderDetails"] [data-testid="stAlert"] { margin-top: 0px !important; margin-bottom: 15px !important; }
+    /* ==============================
+       VISUAL GERAL - MAIS COMPACTO
+    ============================== */
+    .stApp {
+        background-color: #0E1117;
+        color: #FFFFFF;
+    }
+
+    .block-container {
+        max-width: 1500px;
+        padding-top: 1.1rem;
+        padding-left: 2.2rem;
+        padding-right: 2.2rem;
+        padding-bottom: 1.2rem;
+    }
+
+    h1, h2, h3 {
+        color: #FFFFFF !important;
+        letter-spacing: -0.3px;
+    }
+
+    h1 {
+        font-size: 2.05rem !important;
+        margin-bottom: 0.1rem !important;
+    }
+
+    h3 {
+        font-size: 1.22rem !important;
+        margin-top: 0.15rem !important;
+        margin-bottom: 0.55rem !important;
+    }
+
+    h4 {
+        font-size: 1.05rem !important;
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.35rem !important;
+    }
+
+    .neon-green {
+        color: #00E676;
+        font-weight: bold;
+    }
+
+    .sub-text {
+        color: #A0AEC0;
+        font-size: 0.88rem;
+        margin-bottom: 8px;
+    }
+
+    /* ==============================
+       CARDS / CONTAINERS
+    ============================== */
+    [data-testid="stForm"],
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #161A23;
+        border-radius: 14px;
+        border: 1px solid #2D3748;
+        padding: 14px 16px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    }
+
+    [data-testid="stVerticalBlockBorderWrapper"] > div {
+        gap: 0.35rem !important;
+    }
+
+    [data-testid="column"] {
+        padding: 0.05rem 0.2rem;
+    }
+
+    /* Diminui espaços verticais padrão do Streamlit */
+    div[data-testid="stMarkdownContainer"] p {
+        margin-bottom: 0.35rem;
+    }
+
+    div[data-testid="stMarkdownContainer"] {
+        line-height: 1.25rem;
+    }
+
+    hr {
+        margin-top: 0.55rem !important;
+        margin-bottom: 0.55rem !important;
+    }
+
+    /* ==============================
+       FORMULÁRIO / RADIOS
+    ============================== */
+    div[role="radiogroup"] {
+        gap: 0.25rem !important;
+    }
+
+    div[role="radiogroup"] > label {
+        background-color: #0E1117;
+        border: 1px solid #2D3748;
+        border-radius: 9px;
+        padding: 6px 9px;
+        margin-bottom: 4px;
+        font-size: 0.86rem;
+        line-height: 1.12rem;
+        white-space: normal !important;
+        word-break: normal !important;
+    }
+
+    div[role="radiogroup"] > label:hover {
+        border-color: #00E676;
+        background-color: #121722;
+    }
+
+    input {
+        border-radius: 10px !important;
+        min-height: 38px !important;
+    }
+
+    /* Botões */
+    .stButton > button,
+    .stDownloadButton > button,
+    [data-testid="stFormSubmitButton"] button {
+        border-radius: 11px !important;
+        min-height: 40px;
+        font-weight: 700 !important;
+    }
+
+    /* ==============================
+       ABAS
+    ============================== */
+    [data-testid="stTabs"] button {
+        font-size: 0.88rem;
+        font-weight: 600;
+        padding-top: 4px;
+        padding-bottom: 7px;
+        white-space: normal;
+    }
+
+    [data-testid="stTabs"] button[aria-selected="true"] {
+        color: #00E676 !important;
+        border-bottom-color: #00E676 !important;
+    }
+
+    /* ==============================
+       MÉTRICAS DO LAUDO
+    ============================== */
+    [data-testid="stMetric"] {
+        background-color: #0E1117;
+        border: 1px solid #2D3748;
+        border-radius: 12px;
+        padding: 10px 12px;
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #A0AEC0 !important;
+        font-size: 0.82rem !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #FFFFFF !important;
+        font-size: 1.35rem !important;
+        white-space: normal !important;
+    }
+
+    [data-testid="stMetricDelta"] {
+        font-size: 0.78rem !important;
+    }
+
+    /* ==============================
+       ALERTAS, EXPANDERS E RESULTADOS
+    ============================== */
+    [data-testid="stAlert"] {
+        border-radius: 10px;
+        line-height: 1.25rem;
+        padding-top: 0.55rem;
+        padding-bottom: 0.55rem;
+    }
+
+    [data-testid="stExpander"] {
+        border-radius: 12px !important;
+        overflow: hidden;
+        margin-top: 0.25rem;
+        margin-bottom: 0.25rem;
+    }
+
+    [data-testid="stExpanderDetails"] {
+        background-color: #111827;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+
+    [data-testid="stExpanderDetails"] [data-testid="stAlert"] {
+        margin-top: 0px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .raiox-item {
+        font-size: 0.9rem;
+        font-weight: bold;
+        margin-bottom: 5px !important;
+        margin-top: 8px !important;
+        display: block;
+        color: #E2E8F0;
+    }
+
+    p, li, span, div {
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+    }
+
+    /* ==============================
+       SIDEBAR
+    ============================== */
+    [data-testid="stSidebar"] {
+        background-color: #111827;
+        border-right: 1px solid #2D3748;
+    }
+
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] li {
+        font-size: 0.88rem;
+        line-height: 1.25rem;
+    }
+
+    /* ==============================
+       RODAPÉ
+    ============================== */
+    .footer {
+        text-align: center;
+        color: #718096;
+        font-size: 0.78rem;
+        margin-top: 28px;
+        padding-top: 12px;
+        border-top: 1px solid #2D3748;
+    }
+
+    /* ==============================
+       RESPONSIVIDADE
+    ============================== */
+    @media (max-width: 1100px) {
+        .block-container {
+            padding-left: 1.2rem;
+            padding-right: 1.2rem;
+        }
+
+        h1 {
+            font-size: 1.75rem !important;
+        }
+
+        [data-testid="stMetricValue"] {
+            font-size: 1.2rem !important;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -117,7 +360,7 @@ with st.sidebar:
 st.markdown("<h1 style='text-align: center;'><span class='neon-green'>🎯</span> STP: Triagem Preditiva</h1>", unsafe_allow_html=True)
 st.write("") 
 
-col_esq, col_dir = st.columns([1.2, 1.2], gap="large")
+col_esq, col_dir = st.columns([0.95, 1.35], gap="large")
 
 with col_esq:
     st.markdown("### 📋 Coleta de Dados Clínicos")
@@ -130,51 +373,99 @@ with col_esq:
         
         with aba_treino:
             st.markdown("**1. Carga de Treino Recente**")
-            carga_val = st.radio("Carga", ["Habitual (Estável)", "Aumento Leve", "Pico Súbito (Muito acima do normal)"], label_visibility="collapsed")
+            carga_val = st.radio("Carga", ["Habitual (Estável)", "Aumento Leve", "Pico Súbito (Muito acima do normal)"], index=None, label_visibility="collapsed")
             st.write("")
             
             st.markdown("**2. Nível de Fadiga**")
-            fadiga_val = st.radio("Fadiga", ["Recuperado", "Cansaço Leve", "Exaustão / Muito Cansado"], label_visibility="collapsed")
+            fadiga_val = st.radio("Fadiga", ["Recuperado", "Cansaço Leve", "Exaustão / Muito Cansado"], index=None, label_visibility="collapsed")
             st.write("")
             
             st.markdown("**3. Descanso e Pausas**")
-            desc_val = st.radio("Descanso", ["Dias de descanso respeitados", "Treinos consecutivos sem pausa"], label_visibility="collapsed")
+            desc_val = st.radio("Descanso", ["Dias de descanso respeitados", "Treinos consecutivos sem pausa"], index=None, label_visibility="collapsed")
             
         with aba_clinica:
             st.markdown("**4. Dor Atual**")
-            dor_val = st.radio("Dor", ["Nenhuma", "Leve Desconforto", "Dor Aguda / Limitante"], label_visibility="collapsed")
+            dor_val = st.radio("Dor", ["Nenhuma", "Leve Desconforto", "Dor Aguda / Limitante"], index=None, label_visibility="collapsed")
             st.write("")
             
             st.markdown("**5. Mobilidade e Flexibilidade**")
-            mob_val = st.radio("Mobilidade", ["Normal / Livre", "Restrita / Encurtamento"], label_visibility="collapsed")
+            mob_val = st.radio("Mobilidade", ["Normal / Livre", "Restrita / Encurtamento"], index=None, label_visibility="collapsed")
             st.write("")
             
             st.markdown("**6. Qualidade do Sono**")
-            sono_val = st.radio("Sono", ["menos que 6", "de 7 a 9", "de 10 a 12"], index=1, label_visibility="collapsed")
+            sono_val = st.radio("Sono", ["menos que 6", "de 7 a 9", "de 10 a 12"], index=None, label_visibility="collapsed")
             st.write("")
             
             st.markdown("**7. Histórico de Lesão (6 meses)**")
-            hist_val = st.radio("Histórico", ["Não", "Sim"], horizontal=True, label_visibility="collapsed")
+            hist_val = st.radio("Histórico", ["Não", "Sim"], index=None, horizontal=True, label_visibility="collapsed")
             
         st.write("")
         btn_analisar = st.form_submit_button("🩺 GERAR LAUDO DO ATLETA", type="primary", use_container_width=True)
 
 with col_dir:
     st.markdown("### 🎯 Laudo Preditivo Oficial")
+    
+    # 1. QUANDO O BOTÃO É CLICADO, SALVAMOS TUDO NA MEMÓRIA
     if btn_analisar:
-        identificacao = nome_atleta if nome_atleta else "Atleta Não Identificado"
+        campos_obrigatorios = {
+            "Carga de Treino Recente": carga_val,
+            "Nível de Fadiga": fadiga_val,
+            "Descanso e Pausas": desc_val,
+            "Dor Atual": dor_val,
+            "Mobilidade e Flexibilidade": mob_val,
+            "Qualidade do Sono": sono_val,
+            "Histórico de Lesão (6 meses)": hist_val
+        }
         
-        with st.spinner(f"Analisando variáveis de {identificacao}..."):
-            time.sleep(0.8)
-            risco, pontos, justificativa, cor, tipo_alerta = calcular_risco_lesao(carga_val, sono_val, fadiga_val, hist_val, dor_val, mob_val, desc_val)
+        campos_vazios = [nome for nome, valor in campos_obrigatorios.items() if valor is None]
         
-        st.toast("Laudo gerado com sucesso!", icon="✅")
+        if campos_vazios:
+            st.session_state['estado_laudo'] = 'erro'
+            st.session_state['campos_vazios'] = campos_vazios
+        else:
+            st.session_state['estado_laudo'] = 'sucesso'
+            st.session_state['dados'] = {
+                'nome': nome_atleta if nome_atleta else "Atleta Não Identificado",
+                'carga': carga_val,
+                'fadiga': fadiga_val,
+                'desc': desc_val,
+                'dor': dor_val,
+                'mob': mob_val,
+                'sono': sono_val,
+                'hist': hist_val,
+                'data_hora': datetime.now().strftime("%d/%m/%Y às %H:%M")
+            }
+
+    # 2. RENDERIZAMOS A TELA LENDO DA MEMÓRIA (Assim nada some!)
+    estado = st.session_state['estado_laudo']
+
+    if estado == 'erro':
+        with st.container(border=True):
+            st.error("🚨 **Atenção: Preenchimento Incompleto!**")
+            st.write("Não é possível gerar um laudo médico preditivo com dados faltantes. Por favor, responda às seguintes perguntas nas abas ao lado:")
+            for campo in st.session_state['campos_vazios']:
+                st.markdown(f"- 🔴 **{campo}**")
+            st.write("")
+            st.info("Após preencher os campos acima, clique novamente em 'Gerar Laudo'.")
+            
+    elif estado == 'sucesso':
+        d = st.session_state['dados']
+        
+        # Só exibe o spinner e o toast quando acabou de clicar no botão
+        if btn_analisar:
+            with st.spinner(f"Analisando variáveis de {d['nome']}..."):
+                time.sleep(0.8)
+            st.toast("Laudo gerado com sucesso!", icon="✅")
+            
+        risco, pontos, justificativa, cor, tipo_alerta = calcular_risco_lesao(
+            d['carga'], d['sono'], d['fadiga'], d['hist'], d['dor'], d['mob'], d['desc']
+        )
         
         with st.container(border=True):
-            st.markdown(f"**Atleta Avaliado:** {identificacao}")
+            st.markdown(f"**Atleta Avaliado:** {d['nome']} <br> <span style='font-size: 0.8rem; color: #A0AEC0;'>📅 Data da Triagem: {d['data_hora']}</span>", unsafe_allow_html=True)
             st.divider()
             
-            # 1. CABEÇALHO DO LAUDO
+            # CABEÇALHO DO LAUDO
             met1, met2 = st.columns(2)
             with met1:
                 st.metric(label="Status Global de Risco", value=risco)
@@ -186,14 +477,13 @@ with col_dir:
             
             st.divider()
             
-            # Avisos Clínicos Fortes
             if tipo_alerta == "CRITICO_DOR_MOBILIDADE":
                 st.error("**ALERTA CLÍNICO:** Combinação de dor e restrição de mobilidade. **Suspenda os treinos e procure avaliação médica.**", icon="🚨")
             elif tipo_alerta == "AVISO_SÓ_MOBILIDADE":
                 st.warning("**AVISO PREVENTIVO:** Restrição de mobilidade detectada. Isso altera a biomecânica. **Considere avaliação preventiva.**", icon="⚠️")
             
-            # 2. RAIO-X DAS VARIÁVEIS 
-            with st.expander("🔬 **Raio-X da Sobrecarga (Detalhes)**", expanded=True):
+            # RAIO-X DAS VARIÁVEIS
+            with st.expander("🔬 **Raio-X da Sobrecarga (Detalhes)**", expanded=False):
                 st.markdown("<div class='raiox-item'>Justificativa do Modelo:</div>", unsafe_allow_html=True)
                 if risco == "BAIXO":
                     st.success(f"✅ {justificativa}")
@@ -204,84 +494,110 @@ with col_dir:
                 
                 st.markdown("<div class='raiox-item'>Mapeamento de Fatores:</div>", unsafe_allow_html=True)
                 
-                if carga_val == "Pico Súbito (Muito acima do normal)":
-                    st.error("⚡ Carga de Treino: Crítica (Pico Súbito)")
-                elif carga_val == "Aumento Leve":
-                    st.warning("⚡ Carga de Treino: Atenção (Aumento Leve)")
-                else:
-                    st.success("⚡ Carga de Treino: Adequada")
+                rx_col1, rx_col2 = st.columns(2)
+                
+                with rx_col1:
+                    if d['carga'] == "Pico Súbito (Muito acima do normal)":
+                        st.error("⚡ Carga: Pico Súbito")
+                    elif d['carga'] == "Aumento Leve":
+                        st.warning("⚡ Carga: Aumento Leve")
+                    else:
+                        st.success("⚡ Carga: Adequada")
 
-                if sono_val == "menos que 6":
-                    st.error("🛌 Recuperação (Sono): Deficitária (< 6h)")
-                else:
-                    st.success("🛌 Recuperação (Sono): Adequada")
-                    
-                if dor_val == "Dor Aguda / Limitante":
-                    st.error("💥 Quadro Clínico: Dor Aguda Ativa")
-                elif dor_val == "Leve Desconforto":
-                    st.warning("💥 Quadro Clínico: Desconforto Leve")
+                    if d['sono'] == "menos que 6":
+                        st.error("🛌 Sono: Deficitário")
+                    else:
+                        st.success("🛌 Sono: Adequado")
+                
+                with rx_col2:
+                    if d['dor'] == "Dor Aguda / Limitante":
+                        st.error("💥 Dor: Aguda Ativa")
+                    elif d['dor'] == "Leve Desconforto":
+                        st.warning("💥 Dor: Desconforto")
+                    else:
+                        st.success("💥 Dor: Nenhuma")
+                        
+                    if d['mob'] == "Restrita / Encurtamento":
+                        st.warning("🤸 Mobilidade: Restrita")
+                    else:
+                        st.success("🤸 Mobilidade: Livre")
 
-            # 3. PLANO DE AÇÃO
+            # PLANO DE AÇÃO
             st.markdown("#### 🛠️ Plano de Intervenção Recomendado")
             with st.container(border=True):
                 intervencoes = 0
                 if risco == "BAIXO" and pontos == 0:
                     st.write("- ✅ **Treino Liberado:** Atleta em perfeitas condições. Manter a planilha atual.")
                     intervencoes += 1
-                if carga_val == "Pico Súbito (Muito acima do normal)":
+                if d['carga'] == "Pico Súbito (Muito acima do normal)":
                     st.write("- ⚡ **Ajuste de Carga:** O volume de treino está muito alto. Sugere-se uma semana de *Deload* (redução de 30% a 50% da carga).")
                     intervencoes += 1
-                if sono_val == "menos que 6" or fadiga_val == "Exaustão / Muito Cansado":
+                if d['sono'] == "menos que 6" or d['fadiga'] == "Exaustão / Muito Cansado":
                     st.write("- 🛌 **Foco em Recovery:** O corpo não está se recuperando a tempo. Priorizar higiene do sono (meta de 8h) e hidratação.")
                     intervencoes += 1
-                if desc_val == "Treinos consecutivos sem pausa":
-                    st.write("- ⏳ **Gestão de Descanso:** Inserir obrigatoriamente 1 a 2 dias de *Rest Day* total na atual microciclo de treinos.")
+                if d['desc'] == "Treinos consecutivos sem pausa":
+                    st.write("- ⏳ **Gestão de Descanso:** Inserir obrigatoriamente 1 a 2 dias de *Rest Day* total no atual microciclo de treinos.")
                     intervencoes += 1
-                if dor_val != "Nenhuma" or mob_val == "Restrita / Encurtamento":
+                if d['dor'] != "Nenhuma" or d['mob'] == "Restrita / Encurtamento":
                     st.write("- 🧘 **Protocolo Físico:** Iniciar sessões de mobilidade articular e liberação miofascial antes de qualquer esforço.")
                     intervencoes += 1
                 
                 if intervencoes == 0:
                     st.write("- ✅ Mantenha o monitoramento diário para garantir a prevenção contínua.")
 
+            # MÓDULO DE VALIDAÇÃO CLÍNICA CONTÍNUA (Agora seguro contra resete)
+            with st.expander("🩺 Validação em Cenário Real (Feedback do Especialista)", expanded=False):
+                st.markdown("<div style='font-size:0.85rem; color:#A0AEC0;'>Seção exclusiva para o Fisioterapeuta/Treinador validar a acurácia do modelo em campo:</div>", unsafe_allow_html=True)
+                feedback_modelo = st.radio("O diagnóstico da IA condiz com o estado clínico real do atleta?", ["Sim, 100% de acerto", "Parcialmente correto", "Incorreto / Falso Positivo"], index=None, key="feedback_banca")
+                obs_clinica = st.text_input("Observações de campo / Ajustes sugeridos pelo especialista:", placeholder="Ex: Atleta relatou dor tardia muscular comum, não articular...")
+
             st.write("")
+            col_botoes1, col_botoes2 = st.columns(2)
             
-            # Exportar Laudo
-            texto_relatorio = f"""
+            with col_botoes1:
+                feedback_txt = feedback_modelo if feedback_modelo else "Não avaliado pelo especialista ainda"
+                obs_txt = obs_clinica if obs_clinica else "Nenhuma observação inserida"
+                
+                texto_relatorio = f"""
 ======================================
   STP - SISTEMA DE TRIAGEM PREDITIVA
   Laudo de Risco Individual
 ======================================
 
-ATLETA AVALIADO: {identificacao}
+ATLETA AVALIADO: {d['nome']}
+DATA DA TRIAGEM: {d['data_hora']}
 
-RESULTADO DA TRIAGEM:
+RESULTADO DA TRIAGEM DA IA:
 - Risco Detectado: {risco}
 - Carga Acumulada: {pontos} pontos
-
-RESUMO DAS VARIÁVEIS DECLARADAS:
-- Carga de Treino: {carga_val}
-- Fadiga: {fadiga_val}
-- Dor Atual: {dor_val}
-- Histórico: {hist_val}
-- Sono: {sono_val}h
-- Mobilidade: {mob_val}
-- Descanso: {desc_val}
 
 JUSTIFICATIVA DO MODELO LÓGICO:
 {justificativa}
 
 ======================================
+  MÓDULO DE VALIDAÇÃO EM CENÁRIO REAL
+======================================
+- Validação Clínica: {feedback_txt}
+- Notas do Especialista: {obs_txt}
+
+======================================
 Gerado eletronicamente por STP (Python)
-            """
-            st.download_button(
-                label=f"📥 Exportar Laudo de {identificacao} (.txt)",
-                data=texto_relatorio,
-                file_name=f"Laudo_STP_{identificacao}.txt",
-                mime="text/plain",
-                use_container_width=True
-            )
-            
+                """
+                st.download_button(
+                    label=f"📥 Exportar Prontuário Validado (.txt)",
+                    data=texto_relatorio,
+                    file_name=f"Laudo_STP_{d['nome']}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+                
+            with col_botoes2:
+                if st.button("🔄 Avaliar Novo Atleta", use_container_width=True):
+                    # Limpa a memória para avaliar o próximo
+                    st.session_state['estado_laudo'] = None
+                    st.session_state['dados'] = {}
+                    st.rerun()
+        
     else:
         with st.container(border=True):
             st.info("Aguardando submissão do formulário...", icon="⏳")
