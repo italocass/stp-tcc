@@ -17,7 +17,6 @@ if 'campos_vazios' not in st.session_state:
 
 st.markdown("""
     <style>
-<<<<<<< HEAD
     /* ==============================
        VISUAL GERAL - MAIS COMPACTO
     ============================== */
@@ -265,19 +264,6 @@ st.markdown("""
             font-size: 1.2rem !important;
         }
     }
-=======
-    .stApp { background-color: #0E1117; color: #FFFFFF; }
-    [data-testid="stForm"], [data-testid="stVerticalBlockBorderWrapper"] { background-color: #161A23; border-radius: 12px; border: 1px solid #2D3748; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-    .neon-green { color: #00E676; font-weight: bold; }
-    h1, h2, h3 { color: #FFFFFF !important; }
-    .sub-text { color: #A0AEC0; font-size: 0.9rem; margin-bottom: 15px; }
-    div[role="radiogroup"] > label { margin-bottom: 5px; font-size: 0.85rem; }
-    [data-testid="stTabs"] button { font-size: 1rem; font-weight: 600; padding-bottom: 10px; }
-    [data-testid="stTabs"] button[aria-selected="true"] { color: #00E676 !important; border-bottom-color: #00E676 !important; }
-    .footer { text-align: center; color: #4A5568; font-size: 0.85rem; margin-top: 50px; padding-top: 20px; border-top: 1px solid #2D3748; }
-    .raiox-item { font-size: 0.95rem; font-weight: bold; margin-bottom: 8px !important; margin-top: 12px !important; display: block; color: #E2E8F0; }
-    [data-testid="stExpanderDetails"] [data-testid="stAlert"] { margin-top: 0px !important; margin-bottom: 15px !important; }
->>>>>>> 27db395b66d010dcee4f33d0ef63dd6f5318e979
     </style>
 """, unsafe_allow_html=True)
 
@@ -497,11 +483,7 @@ with col_dir:
                 st.warning("**AVISO PREVENTIVO:** Restrição de mobilidade detectada. Isso altera a biomecânica. **Considere avaliação preventiva.**", icon="⚠️")
             
             # RAIO-X DAS VARIÁVEIS
-<<<<<<< HEAD
             with st.expander("🔬 **Raio-X da Sobrecarga (Detalhes)**", expanded=False):
-=======
-            with st.expander("🔬 **Raio-X da Sobrecarga (Detalhes)**", expanded=True):
->>>>>>> 27db395b66d010dcee4f33d0ef63dd6f5318e979
                 st.markdown("<div class='raiox-item'>Justificativa do Modelo:</div>", unsafe_allow_html=True)
                 if risco == "BAIXO":
                     st.success(f"✅ {justificativa}")
@@ -564,12 +546,7 @@ with col_dir:
                     st.write("- ✅ Mantenha o monitoramento diário para garantir a prevenção contínua.")
 
             # MÓDULO DE VALIDAÇÃO CLÍNICA CONTÍNUA (Agora seguro contra resete)
-<<<<<<< HEAD
             with st.expander("🩺 Validação em Cenário Real (Feedback do Especialista)", expanded=False):
-=======
-            st.markdown("#### 🩺 Validação em Cenário Real (Feedback do Especialista)")
-            with st.container(border=True):
->>>>>>> 27db395b66d010dcee4f33d0ef63dd6f5318e979
                 st.markdown("<div style='font-size:0.85rem; color:#A0AEC0;'>Seção exclusiva para o Fisioterapeuta/Treinador validar a acurácia do modelo em campo:</div>", unsafe_allow_html=True)
                 feedback_modelo = st.radio("O diagnóstico da IA condiz com o estado clínico real do atleta?", ["Sim, 100% de acerto", "Parcialmente correto", "Incorreto / Falso Positivo"], index=None, key="feedback_banca")
                 obs_clinica = st.text_input("Observações de campo / Ajustes sugeridos pelo especialista:", placeholder="Ex: Atleta relatou dor tardia muscular comum, não articular...")
